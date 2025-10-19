@@ -74,7 +74,7 @@ aw-deckctl status
 
 Le fichier d’état est toujours ici :
 
-```
+```bash
 ~/.local/state/aw-deck/state.json
 ```
 
