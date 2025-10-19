@@ -8,10 +8,9 @@ Suivi d’activité (client/projet/tâche) depuis ton Stream Deck, envoyé vers 
 * **CLI** : `aw-deckctl` met à jour `state.json` (ex. `start ACME -p SiteWeb -t "Fix header"` / `stop`).
 * **Service** : `~/.config/systemd/user/aw-deckd.service` lance le daemon au login.
 
-Fonctionne avec :
+**Testé avec :**
 
-* **StreamController** (recommandé si tu veux des pages/scènes dynamiques + scripts),
-* **streamdeck-linux-gui** (plus simple/graphique, actions “Run command”).
+* **StreamController** (via environnement Python **venv** — recommandé pour éviter les limitations Flatpak et disposer d’actions/scripts flexibles).
 
 ---
 
@@ -24,6 +23,7 @@ Fonctionne avec :
   ```
 
   Par défaut accessible sur `http://localhost:5600`.
+
 * **Outils** : `bash`, `curl`, `jq`.
 
   ```bash
@@ -50,7 +50,7 @@ Cela installe `aw-deckd`, `aw-deckctl`, la unit `aw-deckd.service`, recharge sys
 systemctl --user status aw-deckd.service
 ```
 
-> Le daemon crée le bucket si nécessaire et réessaie tranquillement si `aw-server` n’est pas prêt.
+> Le daemon crée le bucket si nécessaire et réessaie calmement si `aw-server` n’est pas encore prêt.
 
 ---
 
@@ -82,19 +82,24 @@ Il est auto-créé si absent et ignoré s’il est invalide (pas de crash).
 
 ---
 
-## 🎛️ Intégration côté Stream Deck
+## 🎛️ Intégration côté StreamController (recommandé)
 
-### Option A — StreamController
+1. **Installation de StreamController (méthode conseillée)**
+   Utilise un **venv Python** dans le dossier du projet (fiable, pas de sandbox Flatpak) et installe les dépendances GNOME/GTK si besoin.
+   Sur Ubuntu 24.04, paquets utiles :
 
-1. **Installation**
+   ```bash
+   sudo apt install -y libadwaita-1-0 gir1.2-adw-1 \
+       libgtk-4-1 gir1.2-gtk-4.0 adwaita-icon-theme
+   ```
 
-   * Méthode conseillée : **venv Python** dans le dossier du projet (plus fiable que Flatpak, évite les soucis d’USB/DBus/sandbox).
-   * Dépendances GNOME : libadwaita/GTK4 (sur Ubuntu 24.04 : `libadwaita-1-0`, `gir1.2-adw-1`, `libgtk-4-1`, `gir1.2-gtk-4.0`, `adwaita-icon-theme`).
-   * *Note* : certaines branches récentes de StreamController utilisent `Adw.ToggleGroup` (dispo depuis libadwaita ≥ 1.4). Si ta distro ne l’exporte pas, reste sur une révision compatible (ou mets à jour libadwaita/OS).
+   > Remarque : certaines révisions récentes de StreamController utilisent des widgets Adwaita récents. Si ta distro n’exporte pas encore ces API, reste sur une révision compatible **ou** mets à jour libadwaita/ton OS.
 
-2. **Mapper un bouton**
+2. **Mapper un bouton pour appeler le CLI**
+   Dans l’éditeur de pages de StreamController :
 
-   * Ajoute une action qui **exécute une commande shell** :
+   * Ajoute une action qui **exécute une commande shell** (via le plugin **OS** → *Run command*, ou l’action équivalente suivant ta build).
+   * Exemples de commandes :
 
      * Démarrer une session :
        `~/.local/bin/aw-deckctl start ACME -p SiteWeb`
@@ -107,13 +112,7 @@ Il est auto-créé si absent et ignoré s’il est invalide (pas de crash).
 
    * Un bouton par **client/projet** récurrent.
    * Un bouton “Stop/Pause” global (`aw-deckctl stop`).
-   * Si tu veux des **états de boutons** différents selon la page, préfère **dupliquer** les boutons par page (l’état streamcontroller n’est pas “scopé” par page).
-
-### Option B — streamdeck-linux-gui
-
-* Dans l’action **“Run command”**, appelle directement :
-  `~/.local/bin/aw-deckctl start ACME -p SiteWeb` ou `~/.local/bin/aw-deckctl stop`.
-* Avantage : rapide et simple. Inconvénient : mise en page moins flexible.
+   * Les **états de boutons** dans StreamController ne sont **pas** scellés à une page : si tu veux un état visuel différent par page, **duplique** le bouton sur chaque page concernée.
 
 ---
 
@@ -142,6 +141,7 @@ systemctl --user restart aw-deckd.service
 
   * UI Web : [http://localhost:5600/#/buckets](http://localhost:5600/#/buckets)
   * API : `curl -s http://localhost:5600/api/0/buckets/ | jq`
+
 * Suivre en direct :
 
   ```bash
@@ -158,9 +158,9 @@ systemctl --user restart aw-deckd.service
 
 ---
 
-### Mise à jour
+## 🔄 Mise à jour
 
-Après un `git pull` (ou après avoir modifié les scripts dans `bin/` ou `systemd-user/`), réapplique simplement :
+Après un `git pull` (ou si tu as modifié `bin/` ou `systemd-user/`), applique :
 
 ```bash
 ./update.sh
@@ -170,7 +170,7 @@ Cela recopie les fichiers vers `~/.local/bin/` et `~/.config/systemd/user/`, fai
 
 ---
 
-### Désinstallation
+## 🗑️ Désinstallation
 
 ```bash
 ./uninstall.sh
@@ -182,8 +182,8 @@ Cela désactive/arrête le service, supprime les fichiers installés et recharge
 
 ## 📝 Notes plateformes
 
-* **Flatpak StreamController** : l’accès USB/DBus peut être restreint (sandbox). Tu peux tenter des **overrides** (`--device=all`, `--filesystem=home`, permission DBus), mais **la voie venv** est plus simple/fiable.
-* **Libadwaita/GTK** : si tu vois des erreurs du type `Adw.ToggleGroup` introuvable, c’est lié à la version de libadwaita.
+* **StreamController en Flatpak** : l’accès USB/DBus peut être restreint (sandbox). Des overrides existent (`--device=all`, `--filesystem=home`, permissions DBus), mais la voie **venv** est en général plus simple/fiable.
+* **Libadwaita/GTK** : si tu vois des erreurs du type `Adw.ToggleGroup` introuvable, c’est lié à la version de libadwaita de ta distro (mets à jour ou utilise une révision SC compatible).
 * **Veille/Réveil** : le service user `systemd` gère bien la reprise ; `aw-deckd` réémet au cycle suivant.
 
 ---
@@ -191,8 +191,8 @@ Cela désactive/arrête le service, supprime les fichiers installés et recharge
 ## 💡 Idées d’amélioration
 
 * Bouton “⏱ Pause 15 min” : script qui bascule `active:false` puis remet l’état précédent.
-* Ajout d’un champ “tag” ou “note” temporaire via un bouton dédié (`aw-deckctl switch ACME -p SiteWeb -t "Debug SSL"`).
-* Export CSV/rapport côté ActivityWatch (UI/queries).
+* Ajout d’un champ “tag” / “note” temporaire via un bouton dédié (`aw-deckctl switch ACME -p SiteWeb -t "Debug SSL"`).
+* Exploiter l’UI/queries d’ActivityWatch pour des exports (CSV/rapports).
 
 ---
 

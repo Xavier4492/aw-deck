@@ -1,5 +1,6 @@
 # repo2prompt file
 prompt.txt
+.repo2prompt.json
 
 # local .env files
 .env.local*
