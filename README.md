@@ -32,7 +32,7 @@ Fonctionne avec :
 
 ---
 
-## 🚀 Installation / 🔁 Mise à jour / 🧹 Désinstallation
+## 🚀 Installation
 
 ### Installation (première fois)
 

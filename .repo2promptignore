@@ -1,0 +1,12 @@
+# repo2prompt file
+prompt.txt
+
+# local .env files
+.env.local*
+
+# Secrets / Tokens
+secrets.yml
+*.enc
+*.pem
+*.key
+*.pub
