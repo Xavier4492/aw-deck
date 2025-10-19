@@ -1,0 +1,26 @@
+# ~/.config/systemd/user/aw-deckd.service
+[Unit]
+Description=ActivityWatch deck heartbeat daemon
+# Ordonne le démarrage après aw-server (user service)
+Wants=aw-server.service
+After=aw-server.service
+
+[Service]
+Type=simple
+# Tu peux ajuster ces paramètres ici plutôt que dans l’environnement
+Environment=INTERVAL=10
+Environment=PULSETIME=30
+
+# Pas d'ExecStartPre nécessaire ici
+ExecStart=%h/.local/bin/aw-deckd
+
+# Redémarrer en cas d'erreur
+Restart=on-failure
+RestartSec=2
+
+# (Optionnel) Limiter le spam si ça échoue en boucle
+# StartLimitIntervalSec=60
+# StartLimitBurst=10
+
+[Install]
+WantedBy=default.target

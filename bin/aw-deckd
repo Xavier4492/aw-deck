@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASEURL="http://localhost:5600/api/0"
+HOST="$(hostname)"
+BUCKET="aw-deck_${HOST}"
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/aw-deck"
+STATE="$STATE_DIR/state.json"
+mkdir -p "$STATE_DIR"
+[ -f "$STATE" ] || echo '{"active":false}' > "$STATE"
+
+# Paramètres (tu peux ajuster via la unit systemd)
+INTERVAL="${INTERVAL:-10}"     # toutes les 10 s on envoie un heartbeat
+PULSETIME="${PULSETIME:-30}"   # fusionne les pulses à <= 30 s
+
+# Crée le bucket (idempotent)
+curl -s -X POST "$BASEURL/buckets/$BUCKET" \
+  -H 'Content-Type: application/json' \
+  -d "{\"type\":\"custom.deck\",\"client\":\"deck\",\"hostname\":\"$HOST\"}" >/dev/null || true
+
+echo "aw-deckd: running (bucket=$BUCKET, interval=$INTERVAL, pulsetime=$PULSETIME)"
+
+while true; do
+  if [ -f "$STATE" ]; then
+    # Vérifie que le JSON est valide ; sinon on saute ce tour de boucle
+    if jq -e . "$STATE" >/dev/null 2>&1; then
+      active=$(jq -r '.active // false' "$STATE" 2>/dev/null || echo false)
+      if [ "$active" = "true" ]; then
+        client=$(jq -r '.client // empty' "$STATE" 2>/dev/null || echo "")
+        projet=$(jq -r '.projet // empty' "$STATE" 2>/dev/null || echo "")
+        tache=$(jq -r '.tache  // empty' "$STATE" 2>/dev/null || echo "")
+
+        if [ -n "$client" ]; then
+          TS=$(date -Is)
+          data=$(jq -nc --arg client "$client" --arg projet "$projet" --arg tache "$tache" \
+            '{client:$client}
+             + ( ($projet|length)>0 ? {projet:$projet} : {} )
+             + ( ($tache|length)>0  ? {tache:$tache}  : {} )')
+
+          # Duration = INTERVAL pour refléter la granularité
+          curl -sS --max-time 2 -X POST "$BASEURL/buckets/$BUCKET/heartbeat?pulsetime=$PULSETIME" \
+            -H 'Content-Type: application/json' \
+            -d "{\"timestamp\":\"$TS\",\"duration\":$INTERVAL,\"data\":$data}" >/dev/null || true
+        fi
+      fi
+    else
+      # JSON invalide : on ignore calmement ce cycle
+      :
+    fi
+  fi
+  sleep "$INTERVAL"
+done

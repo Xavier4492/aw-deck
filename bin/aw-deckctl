@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# aw-deckctl — petit utilitaire pour piloter l'état d'activité (client/projet/tache)
+# Écrit un JSON dans ~/.local/state/aw-deck/state.json que aw-deckd lit périodiquement.
+# Commandes principales :
+#   - aw-deckctl start <client> [-p <projet>] [-t <tache>] : active la session et définit les champs
+#   - aw-deckctl switch <client> [-p <projet>] [-t <tache>] : alias de start (changer de contexte)
+#   - aw-deckctl stop : désactive la session (active:false)
+#   - aw-deckctl status : affiche le JSON courant
+#
+# Exemple :
+#   aw-deckctl start ACME -p SiteWeb -t "Fix header"
+#   aw-deckctl switch ACME -p AppMobile
+#   aw-deckctl stop
+#
+# Mapping typique dans StreamController :
+#   - Bouton “ACME / SiteWeb”  =>  aw-deckctl start ACME -p SiteWeb
+#   - Bouton “Pause/Stop”      =>  aw-deckctl stop
+#   - Bouton “Switch tâche”    =>  aw-deckctl switch ACME -p SiteWeb -t "Bug #123"
+
+set -euo pipefail
+
+# Chemin du fichier d'état persistant dans XDG_STATE_HOME (fallback à ~/.local/state)
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/aw-deck"
+STATE="$STATE_DIR/state.json"
+mkdir -p "$STATE_DIR"
+[ -f "$STATE" ] || echo '{"active":false}' > "$STATE"
+
+usage() {
+  echo "Usage: aw-deckctl start <client> [-p <projet>] [-t <tache>] | switch <client> ... | stop | status"
+  exit 1
+}
+
+# Sous-commande (start|switch|stop|status)
+cmd="${1:-}"; shift || true
+
+case "$cmd" in
+  start|switch)
+    # On accepte start ou switch (switch = alias pratique pour changer de contexte)
+    client=""; projet=""; tache=""
+    # Parsing simple des options
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -p|--projet) projet="${2:-}"; shift 2 ;;
+        -t|--tache)  tache="${2:-}";  shift 2 ;;
+        *)
+          # Le premier argument non-option est <client>
+          if [ -z "$client" ]; then
+            client="$1"; shift
+          else
+            echo "Argument inconnu: $1"; exit 1
+          fi
+        ;;
+      esac
+    done
+
+    # Client obligatoire
+    [ -z "$client" ] && { echo "Client requis"; usage; }
+
+    # On écrit un JSON minimal mais propre :
+    # active:true     => le daemon enverra des heartbeats
+    # client/projet/tache => champs libres envoyés dans data
+    jq -nc --arg client "$client" --arg projet "$projet" --arg tache "$tache" \
+      '{active:true, client:$client}
+       + ( ($projet|length)>0 ? {projet:$projet} : {} )
+       + ( ($tache|length)>0  ? {tache:$tache}  : {} )' > "$STATE"
+
+    echo "Session ON: client=$client${projet:+, projet=$projet}${tache:+, tache=$tache}"
+  ;;
+
+  stop)
+    # On désactive simplement l'activité
+    jq -nc '{active:false}' > "$STATE"
+    echo "Session OFF"
+  ;;
+
+  status)
+    # On affiche l'état courant ; si absent => active:false
+    if [ -f "$STATE" ]; then
+      cat "$STATE"
+    else
+      echo '{"active":false}'
+    fi
+  ;;
+
+  *)
+    usage
+  ;;
+esac
+
