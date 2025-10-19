@@ -33,10 +33,11 @@ while true; do
 
         if [ -n "$client" ]; then
           TS=$(date -Is)
-          data=$(jq -nc --arg client "$client" --arg projet "$projet" --arg tache "$tache" \
-            '{client:$client}
-             + ( ($projet|length)>0 ? {projet:$projet} : {} )
-             + ( ($tache|length)>0  ? {tache:$tache}  : {} )')
+          data=$(jq -nc --arg client "$client" --arg projet "$projet" --arg tache "$tache" '
+            {client:$client}
+            | if ($projet|length)>0 then .projet=$projet else . end
+            | if ($tache|length)>0  then .tache=$tache  else . end
+          ')
 
           # Duration = INTERVAL pour refléter la granularité
           curl -sS --max-time 2 -X POST "$BASEURL/buckets/$BUCKET/heartbeat?pulsetime=$PULSETIME" \

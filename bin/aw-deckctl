@@ -59,10 +59,11 @@ case "$cmd" in
     # On écrit un JSON minimal mais propre :
     # active:true     => le daemon enverra des heartbeats
     # client/projet/tache => champs libres envoyés dans data
-    jq -nc --arg client "$client" --arg projet "$projet" --arg tache "$tache" \
-      '{active:true, client:$client}
-       + ( ($projet|length)>0 ? {projet:$projet} : {} )
-       + ( ($tache|length)>0  ? {tache:$tache}  : {} )' > "$STATE"
+    jq -nc --arg client "$client" --arg projet "$projet" --arg tache "$tache" '
+      {active:true, client:$client}
+      | if ($projet|length)>0 then .projet=$projet else . end
+      | if ($tache|length)>0  then .tache=$tache  else . end
+    ' > "$STATE"
 
     echo "Session ON: client=$client${projet:+, projet=$projet}${tache:+, tache=$tache}"
   ;;
