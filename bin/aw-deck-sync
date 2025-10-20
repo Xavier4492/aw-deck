@@ -14,6 +14,8 @@ STATE_FILE="$STATE_DIR/state.json"
 
 has_inotify() { command -v inotifywait >/dev/null 2>&1; }
 
+mkdir -p "$STATE_DIR"
+
 # IMPORTANT : on ne masque plus le code de retour !
 sd() { streamdeckc -d "$DECK" "$@" >/dev/null 2>&1; }
 set_state() { # page, button, state
@@ -84,7 +86,7 @@ project_button_for() {
 }
 
 reset_home_page() {
-  # Rétablit toutes les colonnes en état 0 + Stop=0
+  # Rétablit toutes les colonnes en état 0 + Stop=0 (excepté bouton 4 => settings)
   for b in 0 1 2 3 5 6 7 8 10 11 12 13; do set_state "$PAGE_HOME" "$b" 0 || true; done
   set_state "$PAGE_HOME" 9 0 || true
 }
@@ -124,6 +126,7 @@ LAST_PAGE=""
 LAST_BTN=""
 LAST_CLIENT=""
 LAST_ACTIVE="false"
+LAST_HOME_CLIENT=""
 
 reset_project_page() {
   local page="$1" btns=""
@@ -146,11 +149,13 @@ apply_state() {
   client=$(jq -r '.client // empty' "$STATE_FILE")
   proj=$(jq -r '.projet // empty' "$STATE_FILE")
 
-  reset_home_page
-
   if [ "$active" = "true" ] && [ -n "$client" ]; then
-    highlight_column "$client"
-    show_stop_if_active
+    # Reset page 1 seulement si on change de client ou si on passe d'inactif -> actif
+    if [ "$LAST_HOME_CLIENT" != "$client" ] || [ "$LAST_ACTIVE" != "true" ]; then
+      reset_home_page
+      highlight_column "$client"
+      show_stop_if_active
+    fi
 
     # Calcul du bouton projet courant
     local page btn
@@ -170,21 +175,27 @@ apply_state() {
       reset_project_page "$page"
     fi
 
-    [ -n "$page" ] && [ -n "$btn" ] && set_state "$page" "$btn" 1 || true
+    if [ -n "$page" ] && [ -n "$btn" ]; then
+      set_state "$page" "$btn" 1 || true
+      [ -n "${DEBUG_SYNC:-}" ] && echo "aw-deck-sync: client=$client page=$page btn=$btn"
+    fi
 
     LAST_PAGE="$page"
     LAST_BTN="$btn"
     LAST_CLIENT="$client"
     LAST_ACTIVE="$active"
+    LAST_HOME_CLIENT="$client"
   else
-    # Inactif: couper le dernier bouton projet allumé (si connu)
+    # Inactif: couper le dernier bouton projet allumé (si connu) + reset page 1
     if [ -n "$LAST_PAGE" ] && [ -n "$LAST_BTN" ]; then
       set_state "$LAST_PAGE" "$LAST_BTN" 0 || true
     fi
+    reset_home_page
     LAST_PAGE=""
     LAST_BTN=""
     LAST_CLIENT=""
     LAST_ACTIVE="$active"
+    LAST_HOME_CLIENT=""
   fi
 }
 

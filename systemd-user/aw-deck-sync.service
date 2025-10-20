@@ -2,6 +2,8 @@
 Description=Synchronise StreamDeck states from aw-deck state.json
 Wants=streamdeck-ui.service
 After=streamdeck-ui.service
+Wants=aw-deckd.service
+After=aw-deckd.service
 
 [Service]
 Type=simple

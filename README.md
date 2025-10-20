@@ -14,8 +14,8 @@ Testé sur **Ubuntu 24.04.3 LTS**.
 * **`aw-deckd` (daemon)** : lit ce JSON toutes les `INTERVAL` secondes et envoie un heartbeat à **ActivityWatch** (bucket `aw-deck_<hostname>`).
 * **`aw-deck-sync` (daemon)** : écoute les changements du JSON et **met à jour l’UI** du Stream Deck via `streamdeckc` :
 
-  * **Page 1** (clients) : la *colonne* du client actif passe en **état 2** (ou 1 si 2 indisponible).
-  * **Bouton Stop (index 9)** sur la page 1 : passe en **état 2** quand une activité est active.
+  * **Page 1** (clients) : la *colonne* du client actif passe en **état 1**.
+  * **Bouton Stop (index 9)** sur la page 1 : passe en **état 1** quand une activité est active.
   * **Page client** (pages 2 à 5) : le **bouton du projet actif** passe en **état 1**.
 * **`deck-bootstrap` (oneshot au login)** : met **page 0** immédiatement, attend que le Deck & `streamdeckc` répondent, puis bascule en **page 1**.
 * **Services systemd (user)** fournis :
@@ -96,7 +96,7 @@ journalctl --user -u aw-deck-sync.service -f
   * **Stelivo** : `1 6 11`
   * **JuicyWeb** : `2 7 12`
   * **GreenCompany** : `3 8 13`
-  * **Stop** : bouton `9` (devient **état 2** quand une session est active)
+  * **Stop** : bouton `9`
 * **Pages projets** :
 
   * **Page 2 (Owapp)** : `1:Owapp`, `2:Ensemble`, `3:client seul`

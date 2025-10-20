@@ -30,6 +30,20 @@ usage() {
   exit 1
 }
 
+# Écriture atomique du JSON (tmp dans le même répertoire + rename())
+write_state() {
+  local payload="$1"
+  local tmp=""
+  cleanup() { [ -n "${tmp:-}" ] && rm -f "$tmp"; }
+  trap cleanup EXIT
+  tmp="$(mktemp "$STATE_DIR/.state.json.XXXXXX")" || exit 1
+  printf '%s\n' "$payload" > "$tmp"
+  chmod 0644 "$tmp" 2>/dev/null || true   # optionnel : rendre lisible par d'autres
+  mv -f "$tmp" "$STATE"                   # rename() atomique (même FS)
+  tmp=""
+  trap - EXIT
+}
+
 # Sous-commande (start|switch|stop|status)
 cmd="${1:-}"; shift || true
 
@@ -42,6 +56,8 @@ case "$cmd" in
       case "$1" in
         -p|--projet) projet="${2:-}"; shift 2 ;;
         -t|--tache)  tache="${2:-}";  shift 2 ;;
+        -*)
+          echo "Option inconnue: $1"; usage ;;
         *)
           # Le premier argument non-option est <client>
           if [ -z "$client" ]; then
@@ -56,26 +72,23 @@ case "$cmd" in
     # Client obligatoire
     [ -z "$client" ] && { echo "Client requis"; usage; }
 
-    # On écrit un JSON minimal mais propre :
-    # active:true     => le daemon enverra des heartbeats
-    # client/projet/tache => champs libres envoyés dans data
-    jq -nc --arg client "$client" --arg projet "$projet" --arg tache "$tache" '
+    # Construire le JSON proprement
+    payload="$(jq -nc --arg client "$client" --arg projet "$projet" --arg tache "$tache" '
       {active:true, client:$client}
       | if ($projet|length)>0 then .projet=$projet else . end
       | if ($tache|length)>0  then .tache=$tache  else . end
-    ' > "$STATE"
-
+    ')"
+    write_state "$payload"
     echo "Session ON: client=$client${projet:+, projet=$projet}${tache:+, tache=$tache}"
   ;;
 
   stop)
-    # On désactive simplement l'activité
-    jq -nc '{active:false}' > "$STATE"
+    write_state "$(jq -nc '{active:false}')"
     echo "Session OFF"
   ;;
 
   status)
-    # On affiche l'état courant ; si absent => active:false
+    # Affiche l'état courant ; si absent => active:false
     if [ -f "$STATE" ]; then
       cat "$STATE"
     else
@@ -87,4 +100,3 @@ case "$cmd" in
     usage
   ;;
 esac
-

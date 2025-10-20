@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASEURL="http://localhost:5600/api/0"
-HOST="$(hostname)"
+AW_URL="${AW_URL:-http://localhost:5600}"
+BASEURL="$AW_URL/api/0"
+HOST="$(hostname | tr -c '[:alnum:]_-' '_')"
 BUCKET="aw-deck_${HOST}"
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/aw-deck"
@@ -15,7 +16,7 @@ INTERVAL="${INTERVAL:-10}"     # toutes les 10 s on envoie un heartbeat
 PULSETIME="${PULSETIME:-30}"   # fusionne les pulses à <= 30 s
 
 # Crée le bucket (idempotent)
-curl -s -X POST "$BASEURL/buckets/$BUCKET" \
+curl -sSf --connect-timeout 1 --max-time 2 -X POST "$BASEURL/buckets/$BUCKET" \
   -H 'Content-Type: application/json' \
   -d "{\"type\":\"custom.deck\",\"client\":\"deck\",\"hostname\":\"$HOST\"}" >/dev/null || true
 
@@ -40,7 +41,7 @@ while true; do
           ')
 
           # Duration = INTERVAL pour refléter la granularité
-          curl -sS --max-time 2 -X POST "$BASEURL/buckets/$BUCKET/heartbeat?pulsetime=$PULSETIME" \
+          curl -sSf --connect-timeout 1 --max-time 2 -X POST "$BASEURL/buckets/$BUCKET/heartbeat?pulsetime=$PULSETIME" \
             -H 'Content-Type: application/json' \
             -d "{\"timestamp\":\"$TS\",\"duration\":$INTERVAL,\"data\":$data}" >/dev/null || true
         fi
