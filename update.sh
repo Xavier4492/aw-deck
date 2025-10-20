@@ -45,7 +45,7 @@ if ! systemctl --user is-enabled deck-bootstrap.service >/dev/null 2>&1; then
   systemctl --user enable deck-bootstrap.service
 fi
 systemctl --user start deck-bootstrap.service || true
-systemctl --user enable deck-before-sleep.service || true
+systemctl --user enable --now deck-before-sleep.service || true
 
 echo "OK. Status :"
 systemctl --user --no-pager status streamdeck-ui.service aw-deckd.service aw-deck-sync.service

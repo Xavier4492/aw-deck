@@ -32,7 +32,7 @@ systemctl --user enable --now aw-deck-sync.service
 systemctl --user enable --now aw-deck-timer.service
 systemctl --user enable deck-bootstrap.service
 systemctl --user start deck-bootstrap.service || true
-systemctl --user enable deck-before-sleep.service || true
+systemctl --user enable --now deck-before-sleep.service || true
 
 echo "OK. Status :"
 systemctl --user --no-pager status streamdeck-ui.service aw-deckd.service aw-deck-sync.service
