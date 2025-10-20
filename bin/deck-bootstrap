@@ -7,7 +7,7 @@ PAGE_HOME=1
 AW_URL="${AW_URL:-http://localhost:5600}"
 
 # Préserve le code de retour de streamdeckc
-sd() { streamdeckc -d "$DECK" "$@" >/dev/null 2>&1; }
+sd() { /home/xavier/.local/bin/streamdeckc -d "$DECK" "$@" >/dev/null 2>&1; }
 
 # Met la page 0 immédiatement (ne plante pas si streamdeckc n'est pas prêt)
 sd -a SET_PAGE -p "$PAGE_SLEEP" || true

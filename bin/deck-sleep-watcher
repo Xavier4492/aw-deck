@@ -7,6 +7,6 @@ command -v gdbus >/dev/null 2>&1 || { echo "Install: sudo apt install -y libglib
 gdbus monitor --system --dest org.freedesktop.login1 --object-path /org/freedesktop/login1 | \
 while IFS= read -r line; do
   case "$line" in
-    *PrepareForSleep\(*true*\)*) /usr/bin/streamdeckc -d 0 -a SET_PAGE -p 0 >/dev/null 2>&1 || true ;;
+    *PrepareForSleep\(*true*\)*) /home/xavier/.local/bin/streamdeckc -d 0 -a SET_PAGE -p 0 >/dev/null 2>&1 || true ;;
   esac
 done

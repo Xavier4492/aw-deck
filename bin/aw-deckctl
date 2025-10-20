@@ -26,8 +26,8 @@ RETURN_HOME_ON_PROJECT="${RETURN_HOME_ON_PROJECT:-1}"
 
 # Helper streamdeckc (n'échoue pas si absent / pas prêt)
 sd() {
-  if command -v streamdeckc >/dev/null 2>&1; then
-    streamdeckc -d "$DECK" "$@" >/dev/null 2>&1
+  if command -v /home/xavier/.local/bin/streamdeckc >/dev/null 2>&1; then
+    /home/xavier/.local/bin/streamdeckc -d "$DECK" "$@" >/dev/null 2>&1
   else
     return 0
   fi

@@ -1,4 +1,3 @@
-# ~/.config/systemd/user/aw-deckd.service
 [Unit]
 Description=ActivityWatch deck heartbeat daemon
 # Ordonne le démarrage après aw-server (user service)

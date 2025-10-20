@@ -7,10 +7,10 @@ Wants=graphical-session.target
 Type=simple
 # Contexte X11 de ta session
 Environment=DISPLAY=:1
-Environment=XAUTHORITY=/run/user/1000/gdm/Xauthority
-ExecStart=%h/.local/bin/deck-sleep-watch
+Environment=XAUTHORITY=%t/gdm/Xauthority
+ExecStart=%h/.local/bin/deck-sleep-watcher
 Restart=always
 RestartSec=2
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

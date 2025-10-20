@@ -1,6 +1,5 @@
 [Unit]
 Description=StreamDeck UI (streamdeck-linux-gui)
-# Démarrer après l'ouverture de session graphique
 After=graphical-session.target
 PartOf=graphical-session.target
 Wants=graphical-session.target
@@ -8,20 +7,21 @@ Wants=graphical-session.target
 [Service]
 Type=simple
 
-# Contexte graphique X11 (tes valeurs actuelles)
+# Contexte graphique X11
 Environment=QT_QPA_PLATFORM=xcb
 Environment=DISPLAY=:1
-Environment=XAUTHORITY=/run/user/1000/gdm/Xauthority
+Environment=XAUTHORITY=%t/gdm/Xauthority
+Environment=PATH=%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 
 # Petit délai pour laisser la session graphique se stabiliser
 ExecStartPre=/usr/bin/sleep 1
 
-# Chemin du binaire (pipx installe un wrapper ici)
+# Binaire GUI
 ExecStart=%h/.local/bin/streamdeck -n
 
 Restart=always
 RestartSec=2
 
 [Install]
-# Lie l’unité à la session graphique (pas à default.target)
+# Lie l’unité à la session graphique
 WantedBy=graphical-session.target

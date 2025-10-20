@@ -20,7 +20,7 @@ mkdir -p "$STATE_DIR"
 [ -f "$STATE_FILE" ] || echo '{"active":false}' > "$STATE_FILE"
 
 # ---------- Helpers ----------
-sd() { streamdeckc -d "$DECK" "$@" >/dev/null 2>&1; }
+sd() { /home/xavier/.local/bin/streamdeckc -d "$DECK" "$@" >/dev/null 2>&1; }
 
 is_active()   { jq -r '.active // false'     "$STATE_FILE" 2>/dev/null || echo false; }
 started_at()  { jq -r '.started_at // empty' "$STATE_FILE" 2>/dev/null || echo ""; }

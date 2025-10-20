@@ -17,7 +17,7 @@ has_inotify() { command -v inotifywait >/dev/null 2>&1; }
 mkdir -p "$STATE_DIR"
 
 # IMPORTANT : on ne masque plus le code de retour !
-sd() { streamdeckc -d "$DECK" "$@" >/dev/null 2>&1; }
+sd() { /home/xavier/.local/bin/streamdeckc -d "$DECK" "$@" >/dev/null 2>&1; }
 set_state() { # page, button, state
   sd -a SET_STATE -p "$1" -b "$2" -s "$3"
 }

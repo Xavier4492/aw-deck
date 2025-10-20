@@ -51,7 +51,6 @@ Testé sur **Ubuntu 24.04.3 LTS**.
     * **Backend/GUI** : `streamdeck-linux-gui` (binaire `streamdeck`) – installe-le de ta méthode habituelle (AppImage, .deb, build local…).
       Place le binaire dans `~/.local/bin/streamdeck` (ou ajuste le service `streamdeck-ui.service`).
     * **CLI `streamdeckc`** : fourni par **StreamController** (ou équivalent). Assure-toi d’avoir la commande `streamdeckc` disponible dans `$PATH`.
-      Si elle n’est **pas** dans `/usr/bin/streamdeckc`, édite `systemd-user/deck-before-sleep.service` (ligne `ExecStart=`) pour pointer vers l’emplacement correct (e.g. `%h/.local/bin/streamdeckc`).
 
     > Astuce : un `which streamdeckc` te dira le chemin réel. Idem pour `which streamdeck`.
 
@@ -205,17 +204,14 @@ Désactive/arrête les services, supprime binaires et units, puis `daemon-reload
 
    * `streamdeck` (GUI) : par défaut ce repo le lance via `%h/.local/bin/streamdeck` (voir `systemd-user/streamdeck-ui.service`).
      Si tu l’installes ailleurs, modifie `ExecStart=`.
-   * `streamdeckc` : vérifie son chemin réel (`which streamdeckc`).
-     Si besoin, adapte `systemd-user/deck-before-sleep.service` (sinon garde `/usr/bin/streamdeckc` s’il existe).
+
 2. **Ordre de démarrage**
 
    * `streamdeck-ui.service` **doit** démarrer avant `aw-deck-sync.service` et avant `deck-bootstrap.service`.
+
 3. **USB/permissions**
 
    * Si le Deck n’est pas détecté par `streamdeck-linux-gui`, vérifie udev/permissions USB (dépend de ta méthode d’installation).
-4. **Flatpak vs venv**
-
-   * Les builds Flatpak de certains outils peuvent sandboxer l’USB/DBus. La voie “binaire local/venv” est la plus simple ici.
 
 ---
 
