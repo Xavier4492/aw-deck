@@ -1,16 +1,16 @@
 [Unit]
-Description=Switch StreamDeck to page 0 before system sleep
-Before=sleep.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
-Wants=sleep.target
-StopWhenUnneeded=yes
+Description=StreamDeck: set page 0 right before system sleep (login1 watcher)
+After=graphical-session.target
+Wants=graphical-session.target
 
 [Service]
-Type=oneshot
-ExecStart=/usr/bin/streamdeckc -d 0 -a SET_PAGE -p 0
+Type=simple
+# Contexte X11 de ta session
+Environment=DISPLAY=:1
+Environment=XAUTHORITY=/run/user/1000/gdm/Xauthority
+ExecStart=%h/.local/bin/deck-sleep-watch
+Restart=always
+RestartSec=2
 
 [Install]
-WantedBy=sleep.target
-WantedBy=suspend.target
-WantedBy=hibernate.target
-WantedBy=hybrid-sleep.target
-WantedBy=suspend-then-hibernate.target
+WantedBy=default.target

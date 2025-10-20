@@ -16,7 +16,8 @@ rm -f "$HOME/.local/bin/deck-bootstrap" \
       "$HOME/.local/bin/aw-deck-sync" \
       "$HOME/.local/bin/aw-deckd" \
       "$HOME/.local/bin/aw-deckctl" \
-      "$HOME/.local/bin/aw-deck-timer"
+      "$HOME/.local/bin/aw-deck-timer" \
+      "$HOME/.local/bin/deck-sleep-watcher"
 
 systemctl --user daemon-reload
 echo "Désinstallé."

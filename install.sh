@@ -3,11 +3,12 @@ set -euo pipefail
 mkdir -p "$HOME/.local/bin" "$HOME/.config/systemd/user"
 
 # Binaries
-install -m 0755 bin/aw-deckd         "$HOME/.local/bin/aw-deckd"
-install -m 0755 bin/aw-deckctl       "$HOME/.local/bin/aw-deckctl"
-install -m 0755 bin/aw-deck-sync     "$HOME/.local/bin/aw-deck-sync"
-install -m 0755 bin/deck-bootstrap   "$HOME/.local/bin/deck-bootstrap"
-install -m 0755 bin/aw-deck-timer    "$HOME/.local/bin/aw-deck-timer"
+install -m 0755 bin/aw-deckd           "$HOME/.local/bin/aw-deckd"
+install -m 0755 bin/aw-deckctl         "$HOME/.local/bin/aw-deckctl"
+install -m 0755 bin/aw-deck-sync       "$HOME/.local/bin/aw-deck-sync"
+install -m 0755 bin/deck-bootstrap     "$HOME/.local/bin/deck-bootstrap"
+install -m 0755 bin/aw-deck-timer      "$HOME/.local/bin/aw-deck-timer"
+install -m 0755 bin/deck-sleep-watcher "$HOME/.local/bin/deck-sleep-watcher"
 
 # User services
 install -m 0644 systemd-user/aw-deckd.service        "$HOME/.config/systemd/user/aw-deckd.service"
