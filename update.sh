@@ -16,11 +16,19 @@ install -m 0755 bin/deck-bootstrap   "$HOME/.local/bin/deck-bootstrap"
 install -m 0644 systemd-user/aw-deckd.service          "$HOME/.config/systemd/user/aw-deckd.service"
 install -m 0644 systemd-user/aw-deck-sync.service      "$HOME/.config/systemd/user/aw-deck-sync.service"
 install -m 0644 systemd-user/deck-bootstrap.service    "$HOME/.config/systemd/user/deck-bootstrap.service"
+install -m 0644 systemd-user/streamdeck-ui.service     "$HOME/.config/systemd/user/streamdeck-ui.service"
 install -m 0644 systemd-user/deck-before-sleep.service "$HOME/.config/systemd/user/deck-before-sleep.service"
 
 systemctl --user daemon-reload
 
-# (Re)lancer/activer les services principaux
+# D'abord: streamdeck-ui (dépendance de deck-bootstrap et aw-deck-sync)
+if systemctl --user is-enabled streamdeck-ui.service >/dev/null 2>&1; then
+  systemctl --user restart streamdeck-ui.service
+else
+  systemctl --user enable --now streamdeck-ui.service 2>/dev/null || true
+fi
+
+# (Re)lancer/activer les services principaux (aw-deck*)
 for svc in aw-deckd.service aw-deck-sync.service; do
   if systemctl --user is-enabled "$svc" >/dev/null 2>&1; then
     systemctl --user restart "$svc"
@@ -37,4 +45,4 @@ systemctl --user start deck-bootstrap.service || true
 systemctl --user enable deck-before-sleep.service || true
 
 echo "OK. Status :"
-systemctl --user --no-pager status aw-deckd.service aw-deck-sync.service
+systemctl --user --no-pager status streamdeck-ui.service aw-deckd.service aw-deck-sync.service
