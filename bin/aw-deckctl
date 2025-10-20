@@ -93,14 +93,14 @@ case "$cmd" in
     # Client obligatoire
     [ -z "$client" ] && { echo "Client requis"; usage; }
 
-    # Construire le JSON proprement
-    payload="$(jq -nc --arg client "$client" --arg projet "$projet" --arg tache "$tache" '
-      {active:true, client:$client}
+    TS="$(date -Is)"  # <-- horodatage ISO
+    payload="$(jq -nc --arg client "$client" --arg projet "$projet" --arg tache "$tache" --arg ts "$TS" '
+      {active:true, client:$client, started_at:$ts}
       | if ($projet|length)>0 then .projet=$projet else . end
       | if ($tache|length)>0  then .tache=$tache  else . end
     ')"
     write_state "$payload"
-    echo "Session ON: client=$client${projet:+, projet=$projet}${tache:+, tache=$tache}"
+    echo "Session ON: client=$client${projet:+, projet=$projet}${tache:+, tache=$tache} (started_at=$TS)"
 
     return_home
   ;;

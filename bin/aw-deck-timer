@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# aw-deck-timer — affiche un timer hh:mm (ou hh:mm:ss) sur la page 1, bouton 14.
+# Lit ~/.local/state/aw-deck/state.json (écrit par aw-deckctl) et met à jour
+# le texte du bouton via streamdeckc, en s'alignant sur un tick régulier.
+
+set -euo pipefail
+
+# ---------- Paramètres (surchargeables via l’unit systemd) ----------
+DECK="${DECK:-0}"
+PAGE_HOME="${PAGE_HOME:-1}"
+TIMER_BUTTON_INDEX="${TIMER_BUTTON_INDEX:-14}"
+TIMER_BUTTON_STATE="${TIMER_BUTTON_STATE:-1}"     # 1 = "état actif" du bouton
+SHOW_SECONDS="${SHOW_SECONDS:-0}"                 # 0 => hh:mm | 1 => hh:mm:ss
+TICK_ALIGN="${TICK_ALIGN:-60}"                    # 60 => minute | 10 => toutes les 10s | 1 => chaque seconde
+
+# ---------- Chemins ----------
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/aw-deck"
+STATE_FILE="$STATE_DIR/state.json"
+mkdir -p "$STATE_DIR"
+[ -f "$STATE_FILE" ] || echo '{"active":false}' > "$STATE_FILE"
+
+# ---------- Helpers ----------
+sd() { streamdeckc -d "$DECK" "$@" >/dev/null 2>&1; }
+
+is_active()   { jq -r '.active // false'     "$STATE_FILE" 2>/dev/null || echo false; }
+started_at()  { jq -r '.started_at // empty' "$STATE_FILE" 2>/dev/null || echo ""; }
+
+activity_signature() {
+  # Chaîne qui change dès qu’on commute le contexte OU qu’on redémarre une session
+  jq -r '[.client//"", .projet//"", .tache//"", .started_at//""] | join("|")' \
+     "$STATE_FILE" 2>/dev/null || echo ""
+}
+
+has_inotify() { command -v inotifywait >/dev/null 2>&1; }
+
+wait_for_change() {
+  # Réveille dès qu’on (ré)écrit le state.json ; repli à un petit sleep sinon
+  if has_inotify; then
+    inotifywait -qq -e close_write,create,modify,move "$STATE_DIR" >/dev/null 2>&1 || sleep 0.5
+  else
+    sleep 0.5
+  fi
+}
+
+set_timer_text() {
+  local txt="$1"
+  # Tente sur l’état "actif" attendu...
+  sd -a SET_TEXT -p "$PAGE_HOME" -b "$TIMER_BUTTON_INDEX" -s "$TIMER_BUTTON_STATE" --text "$txt" || true
+  # ...et aussi sur l’autre état par robustesse (au cas où l’UI n’a qu’un seul state défini)
+  local other_state
+  if [ "$TIMER_BUTTON_STATE" = "1" ]; then other_state=0; else other_state=1; fi
+  sd -a SET_TEXT -p "$PAGE_HOME" -b "$TIMER_BUTTON_INDEX" -s "$other_state" --text "$txt" || true
+}
+
+fmt_time() {
+  local diff="$1"
+  local h=$(( diff / 3600 ))
+  local m=$(( (diff % 3600) / 60 ))
+  local s=$(( diff % 60 ))
+  if [ "$SHOW_SECONDS" = "1" ]; then
+    printf "%02d:%02d:%02d" "$h" "$m" "$s"
+  else
+    printf "%02d:%02d" "$h" "$m"
+  fi
+}
+
+sleep_aligned() {
+  # Dort jusqu’au prochain multiple de TICK_ALIGN (évite la dérive)
+  local diff="$1"
+  local align="$2"
+  local remain=$(( align - (diff % align) ))
+  [ "$remain" -le 0 ] && remain="$align"
+  [ "$remain" -gt 3600 ] && remain=3600   # borne de sécurité
+  sleep "$remain"
+}
+
+cleanup() {
+  # Optionnel : vider le texte à l’arrêt du service
+  set_timer_text ""
+}
+trap cleanup EXIT INT TERM
+
+echo "aw-deck-timer: running (page=$PAGE_HOME, button=$TIMER_BUTTON_INDEX, state=$TIMER_BUTTON_STATE, tick=${TICK_ALIGN}s, show_seconds=${SHOW_SECONDS})"
+
+# ---------- Boucle principale ----------
+while true; do
+  if [ "$(is_active)" = "true" ]; then
+    ts="$(started_at)"
+    [ -z "$ts" ] && ts="$(date -Is)"
+    # Conversion ISO -> epoch (GNU date)
+    start_epoch="$(date -d "$ts" +%s 2>/dev/null || date +%s)"
+    sig="$(activity_signature)"   # mémorise le contexte de départ
+
+    # Tant que l’activité reste active
+    while [ "$(is_active)" = "true" ]; do
+      # Si l’utilisateur a changé de client/projet/tâche OU a relancé une session -> on réinitialise
+      newsig="$(activity_signature)"
+      if [ "$newsig" != "$sig" ]; then
+        break
+      fi
+
+      now="$(date +%s)"
+      diff=$(( now - start_epoch ))
+      [ "$diff" -lt 0 ] && diff=0
+
+      # Écrit tout de suite (ex. "00:00") au premier passage, puis aligne
+      set_timer_text "$(fmt_time "$diff")"
+      sleep_aligned "$diff" "$TICK_ALIGN"
+    done
+
+    # Si l’activité est finie, on efface ; sinon on repart sur un nouveau cycle (reset)
+    if [ "$(is_active)" != "true" ]; then
+      set_timer_text ""
+    fi
+  else
+    # Inactif : on purge le texte et on se réveille instantanément dès qu’il y a un changement d’état
+    set_timer_text ""
+    wait_for_change
+  fi
+done

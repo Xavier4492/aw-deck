@@ -11,6 +11,7 @@ install -m 0755 bin/aw-deckd         "$HOME/.local/bin/aw-deckd"
 install -m 0755 bin/aw-deckctl       "$HOME/.local/bin/aw-deckctl"
 install -m 0755 bin/aw-deck-sync     "$HOME/.local/bin/aw-deck-sync"
 install -m 0755 bin/deck-bootstrap   "$HOME/.local/bin/deck-bootstrap"
+install -m 0755 bin/aw-deck-timer    "$HOME/.local/bin/aw-deck-timer"
 
 # User services
 install -m 0644 systemd-user/aw-deckd.service          "$HOME/.config/systemd/user/aw-deckd.service"
@@ -18,6 +19,7 @@ install -m 0644 systemd-user/aw-deck-sync.service      "$HOME/.config/systemd/us
 install -m 0644 systemd-user/deck-bootstrap.service    "$HOME/.config/systemd/user/deck-bootstrap.service"
 install -m 0644 systemd-user/streamdeck-ui.service     "$HOME/.config/systemd/user/streamdeck-ui.service"
 install -m 0644 systemd-user/deck-before-sleep.service "$HOME/.config/systemd/user/deck-before-sleep.service"
+install -m 0644 systemd-user/aw-deck-timer.service     "$HOME/.config/systemd/user/aw-deck-timer.service"
 
 systemctl --user daemon-reload
 
@@ -29,7 +31,7 @@ else
 fi
 
 # (Re)lancer/activer les services principaux (aw-deck*)
-for svc in aw-deckd.service aw-deck-sync.service; do
+for svc in aw-deckd.service aw-deck-sync.service aw-deck-timer.service; do
   if systemctl --user is-enabled "$svc" >/dev/null 2>&1; then
     systemctl --user restart "$svc"
   else

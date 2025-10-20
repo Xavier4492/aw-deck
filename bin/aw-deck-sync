@@ -23,6 +23,12 @@ set_state() { # page, button, state
 }
 set_page() { sd -a SET_PAGE -p "$1"; }
 
+clear_timer_text() {
+  # Vide le texte du bouton timer sur les deux states, pour éviter toute rémanence
+  sd -a SET_TEXT -p "$PAGE_HOME" -b 14 -s 0 --text "" || true
+  sd -a SET_TEXT -p "$PAGE_HOME" -b 14 -s 1 --text "" || true
+}
+
 # mapping colonnes (page 1) et pages projets
 client_to_columns() {
   case "$1" in
@@ -87,7 +93,7 @@ project_button_for() {
 
 reset_home_page() {
   # Rétablit toutes les colonnes en état 0 + Stop=0 (excepté bouton 4 => settings)
-  for b in 0 1 2 3 5 6 7 8 10 11 12 13; do set_state "$PAGE_HOME" "$b" 0 || true; done
+  for b in 0 1 2 3 5 6 7 8 10 11 12 13 14; do set_state "$PAGE_HOME" "$b" 0 || true; done
   set_state "$PAGE_HOME" 9 0 || true
 }
 
@@ -155,6 +161,10 @@ apply_state() {
       reset_home_page
       highlight_column "$client"
       show_stop_if_active
+      # Afficher le timer (bouton 14) en state 1 quand actif
+      set_state "$PAGE_HOME" 14 1 || true
+      # Purge immédiate de l'ancien texte (évite l'effet "il reprend là où il s'était arrêté")
+      clear_timer_text
     fi
 
     # Calcul du bouton projet courant
@@ -169,6 +179,8 @@ apply_state() {
     # Si changement (page/bouton), éteindre l'ancien
     if [ -n "$LAST_PAGE" ] && [ -n "$LAST_BTN" ] && { [ "$LAST_PAGE" != "$page" ] || [ "$LAST_BTN" != "$btn" ]; }; then
       set_state "$LAST_PAGE" "$LAST_BTN" 0 || true
+      # On a changé de projet/page => vider aussi le texte du timer pour éviter l'affichage précédent
+      clear_timer_text
     fi
     # Premier passage après (re)démarrage: assainir la page courante
     if [ -z "$LAST_PAGE" ] && [ -n "$page" ]; then
@@ -191,6 +203,10 @@ apply_state() {
       set_state "$LAST_PAGE" "$LAST_BTN" 0 || true
     fi
     reset_home_page
+    # S'assurer que le timer est au repos (state 0)
+    set_state "$PAGE_HOME" 14 0 || true
+    # Et vider le texte pour de bon
+    clear_timer_text
     LAST_PAGE=""
     LAST_BTN=""
     LAST_CLIENT=""

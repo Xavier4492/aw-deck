@@ -1,0 +1,19 @@
+[Unit]
+Description=StreamDeck live timer (page 1, button 14)
+Wants=streamdeck-ui.service
+After=streamdeck-ui.service aw-deck-sync.service
+
+[Service]
+Type=simple
+# Tu peux ajuster ces env vars si besoin
+Environment=PAGE_HOME=1
+Environment=TIMER_BUTTON_INDEX=14
+Environment=TIMER_BUTTON_STATE=1
+Environment=SHOW_SECONDS=0
+Environment=TICK_ALIGN=60
+ExecStart=%h/.local/bin/aw-deck-timer
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=default.target
