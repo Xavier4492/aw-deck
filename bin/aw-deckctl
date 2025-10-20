@@ -7,7 +7,7 @@
 #   - aw-deckctl stop : désactive la session (active:false)
 #   - aw-deckctl status : affiche le JSON courant
 #
-# Exemple :
+# Exemples :
 #   aw-deckctl start ACME -p SiteWeb -t "Fix header"
 #   aw-deckctl switch ACME -p AppMobile
 #   aw-deckctl stop
@@ -18,6 +18,27 @@
 #   - Bouton “Switch tâche”    =>  aw-deckctl switch ACME -p SiteWeb -t "Bug #123"
 
 set -euo pipefail
+
+# --- Config Deck / retour Home ---
+DECK="${DECK:-0}"
+PAGE_HOME="${PAGE_HOME:-1}"
+RETURN_HOME_ON_PROJECT="${RETURN_HOME_ON_PROJECT:-1}"
+
+# Helper streamdeckc (n'échoue pas si absent / pas prêt)
+sd() {
+  if command -v streamdeckc >/dev/null 2>&1; then
+    streamdeckc -d "$DECK" "$@" >/dev/null 2>&1
+  else
+    return 0
+  fi
+}
+
+return_home() {
+  # Retourne à la Home si activé
+  if [ "${RETURN_HOME_ON_PROJECT}" = "1" ]; then
+    sd -a SET_PAGE -p "$PAGE_HOME" || true
+  fi
+}
 
 # Chemin du fichier d'état persistant dans XDG_STATE_HOME (fallback à ~/.local/state)
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/aw-deck"
@@ -80,11 +101,15 @@ case "$cmd" in
     ')"
     write_state "$payload"
     echo "Session ON: client=$client${projet:+, projet=$projet}${tache:+, tache=$tache}"
+
+    return_home
   ;;
 
   stop)
     write_state "$(jq -nc '{active:false}')"
     echo "Session OFF"
+
+    return_home
   ;;
 
   status)
