@@ -1,0 +1,13 @@
+[Unit]
+Description=Synchronise StreamDeck states from aw-deck state.json
+Wants=streamdeck-ui.service
+After=streamdeck-ui.service
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/aw-deck-sync
+Restart=always
+RestartSec=1s
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=StreamDeck bootstrap (page 0 -> page 1 when ready)
+Wants=streamdeck-ui.service
+After=streamdeck-ui.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/deck-bootstrap
+
+[Install]
+WantedBy=default.target

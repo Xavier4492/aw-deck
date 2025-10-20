@@ -1,0 +1,14 @@
+[Unit]
+Description=StreamDeck UI (streamdeck-linux-gui)
+# Démarrer après l'ouverture de session graphique
+After=graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/streamdeck -n
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

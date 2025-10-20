@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DECK=0
+PAGE_SLEEP=0        # page "veille/marche/arrêt"
+PAGE_HOME=1         # page 1 (clients)
+PAGE_OWAPP=2
+PAGE_STELIVO=3
+PAGE_JUICYWEB=4
+PAGE_GREEN=5
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/aw-deck"
+STATE_FILE="$STATE_DIR/state.json"
+
+has_inotify() { command -v inotifywait >/dev/null 2>&1; }
+
+# IMPORTANT : on ne masque plus le code de retour !
+sd() { streamdeckc -d "$DECK" "$@" >/dev/null 2>&1; }
+set_state() { # page, button, state
+  sd -a SET_STATE -p "$1" -b "$2" -s "$3"
+}
+set_page() { sd -a SET_PAGE -p "$1"; }
+
+# mapping colonnes (page 1) et pages projets
+client_to_columns() {
+  case "$1" in
+    Owapp) echo "0 5 10";;
+    Stelivo) echo "1 6 11";;
+    JuicyWeb) echo "2 7 12";;
+    GreenCompany) echo "3 8 13";;
+    *) echo "";;
+  esac
+}
+client_to_page() {
+  case "$1" in
+    Owapp) echo $PAGE_OWAPP;;
+    Stelivo) echo $PAGE_STELIVO;;
+    JuicyWeb) echo $PAGE_JUICYWEB;;
+    GreenCompany) echo $PAGE_GREEN;;
+    *) echo "";;
+  esac
+}
+
+project_button_for() {
+  local page="$1" proj="$2"
+  case "$page" in
+    2)
+      case "$proj" in
+        "Owapp") echo 1;;
+        "Ensemble Conseils et Services") echo 2;;
+        ""|"__client_only__") echo 3;;
+        *) echo "";;
+      esac
+    ;;
+    3)
+      case "$proj" in
+        "SextingApps") echo 1;;
+        "NCMEC") echo 2;;
+        "Popunder") echo 3;;
+        ""|"Stelivo"|"__client_only__") echo 4;;
+        *) echo "";;
+      esac
+    ;;
+    4)
+      case "$proj" in
+        "CarsApi") echo 1;;
+        "Automarket") echo 2;;
+        "Carsloc") echo 3;;
+        ""|"JuicyWeb"|"__client_only__") echo 4;;
+        *) echo "";;
+      esac
+    ;;
+    5)
+      case "$proj" in
+        "Resval") echo 1;;
+        "Pricecat") echo 2;;
+        "Autoparts") echo 3;;
+        ""|"GreenCompany"|"__client_only__") echo 4;;
+        *) echo "";;
+      esac
+    ;;
+    *) echo "";;
+  esac
+}
+
+reset_home_page() {
+  # Rétablit toutes les colonnes en état 0 + Stop=0
+  for b in 0 1 2 3 5 6 7 8 10 11 12 13; do set_state "$PAGE_HOME" "$b" 0 || true; done
+  set_state "$PAGE_HOME" 9 0 || true
+}
+
+highlight_column() {
+  local client="$1"
+  local cols; cols=$(client_to_columns "$client") || true
+  [ -z "$cols" ] && return 0
+  for b in $cols; do
+    # essaie s=1 -> sinon s=0
+    set_state "$PAGE_HOME" "$b" 1 || set_state "$PAGE_HOME" "$b" 0
+  done
+}
+
+show_stop_if_active() {
+  # Stop bouton index 9 sur page 1
+  set_state "$PAGE_HOME" 9 1
+}
+
+highlight_project_button() {
+  local client="$1" proj="$2"
+  local page; page=$(client_to_page "$client")
+  [ -z "$page" ] && return 0
+
+  local b
+  if [ -z "$proj" ]; then
+    b=$(project_button_for "$page" "__client_only__")
+  else
+    b=$(project_button_for "$page" "$proj")
+  fi
+  [ -n "$b" ] && set_state "$page" "$b" 1 || true
+}
+
+apply_state() {
+  # si JSON invalide, on ignore
+  jq -e . "$STATE_FILE" >/dev/null 2>&1 || return 0
+
+  local active client proj
+  active=$(jq -r '.active // false' "$STATE_FILE")
+  client=$(jq -r '.client // empty' "$STATE_FILE")
+  proj=$(jq -r '.projet // empty' "$STATE_FILE")
+
+  reset_home_page
+
+  if [ "$active" = "true" ] && [ -n "$client" ]; then
+    highlight_column "$client"
+    show_stop_if_active
+    highlight_project_button "$client" "$proj"
+  fi
+}
+
+# --- boucle principale ---
+apply_state
+
+if has_inotify; then
+  while inotifywait -e close_write,create,modify,move "$STATE_DIR" >/dev/null 2>&1; do
+    apply_state
+  done
+else
+  last=""
+  while true; do
+    cur="$(cksum "$STATE_FILE" 2>/dev/null || echo "missing")"
+    if [ "$cur" != "$last" ]; then
+      last="$cur"
+      apply_state
+    fi
+    sleep 1
+  done
+fi

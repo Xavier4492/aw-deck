@@ -1,53 +1,44 @@
 # aw-deck — Pont ActivityWatch ⇄ Stream Deck
 
-Suivi d’activité (client/projet/tâche) depuis ton Stream Deck, envoyé vers ActivityWatch via un petit démon user `systemd`.
+Suivi d’activité (client/projet/tâche) depuis ton Stream Deck, envoyé vers ActivityWatch via des services **systemd (user)**.
 
 ## 🧱 Vue d’ensemble
 
 * **Daemon** : `aw-deckd` lit `~/.local/state/aw-deck/state.json` toutes les `INTERVAL` secondes et envoie un **heartbeat** vers le bucket `aw-deck_<hostname>`.
 * **CLI** : `aw-deckctl` met à jour `state.json` (ex. `start ACME -p SiteWeb -t "Fix header"` / `stop`).
-* **Service** : `~/.config/systemd/user/aw-deckd.service` lance le daemon au login.
+* **Sync UI** : `aw-deck-sync` (service user) écoute les changements de `state.json` et met à jour l’UI du deck :
+  - **Page 1** : colonne du **client actif** en **état 2** (ou 1 si pas d’état 2),
+  - **Bouton Stop (9)** : **état 2** quand actif,
+  - **Page client** (2..5) : bouton **projet actif** en **état 1**.
+* **Bootstrap** : `deck-bootstrap` (service oneshot) met **page 0** au login puis **page 1** quand prêt.
 
-**Testé avec :**
-
-* **StreamController** (via environnement Python **venv** — recommandé pour éviter les limitations Flatpak et disposer d’actions/scripts flexibles).
+**Testé avec** : StreamController (via venv) et `streamdeckc`.
 
 ---
 
 ## ✅ Prérequis
 
-* **ActivityWatch** (serveur) en user service :
-
-  ```bash
-  systemctl --user enable --now aw-server.service
-  ```
-
-  Par défaut accessible sur `http://localhost:5600`.
-
-* **Outils** : `bash`, `curl`, `jq`.
-
-  ```bash
-  sudo apt install -y curl jq
-  ```
+```bash
+sudo apt install -y curl jq inotify-tools
+systemctl --user enable --now aw-server.service   # ActivityWatch
+```
 
 ---
 
 ## 🚀 Installation
 
-### Installation (première fois)
-
-Depuis la racine du repo :
-
 ```bash
 ./install.sh
 ```
 
-Cela installe `aw-deckd`, `aw-deckctl`, la unit `aw-deckd.service`, recharge systemd user et **active** le service.
+Active `aw-deckd`, `aw-deck-sync`, et exécute `deck-bootstrap` (oneshot).
 
-### Vérifier
+Vérifier :
 
 ```bash
 systemctl --user status aw-deckd.service
+systemctl --user status aw-deck-sync.service
+journalctl --user -u aw-deck-sync.service -f
 ```
 
 > Le daemon crée le bucket si nécessaire et réessaie calmement si `aw-server` n’est pas encore prêt.
@@ -79,40 +70,6 @@ Le fichier d’état est toujours ici :
 ```
 
 Il est auto-créé si absent et ignoré s’il est invalide (pas de crash).
-
----
-
-## 🎛️ Intégration côté StreamController (recommandé)
-
-1. **Installation de StreamController (méthode conseillée)**
-   Utilise un **venv Python** dans le dossier du projet (fiable, pas de sandbox Flatpak) et installe les dépendances GNOME/GTK si besoin.
-   Sur Ubuntu 24.04, paquets utiles :
-
-   ```bash
-   sudo apt install -y libadwaita-1-0 gir1.2-adw-1 \
-       libgtk-4-1 gir1.2-gtk-4.0 adwaita-icon-theme
-   ```
-
-   > Remarque : certaines révisions récentes de StreamController utilisent des widgets Adwaita récents. Si ta distro n’exporte pas encore ces API, reste sur une révision compatible **ou** mets à jour libadwaita/ton OS.
-
-2. **Mapper un bouton pour appeler le CLI**
-   Dans l’éditeur de pages de StreamController :
-
-   * Ajoute une action qui **exécute une commande shell** (via le plugin **OS** → *Run command*, ou l’action équivalente suivant ta build).
-   * Exemples de commandes :
-
-     * Démarrer une session :
-       `~/.local/bin/aw-deckctl start ACME -p SiteWeb`
-     * Changer de contexte (alias) :
-       `~/.local/bin/aw-deckctl switch ACME -p AppMobile -t "Bug #123"`
-     * Stop :
-       `~/.local/bin/aw-deckctl stop`
-
-3. **Bonnes pratiques**
-
-   * Un bouton par **client/projet** récurrent.
-   * Un bouton “Stop/Pause” global (`aw-deckctl stop`).
-   * Les **états de boutons** dans StreamController ne sont **pas** scellés à une page : si tu veux un état visuel différent par page, **duplique** le bouton sur chaque page concernée.
 
 ---
 
@@ -163,6 +120,7 @@ systemctl --user restart aw-deckd.service
 Après un `git pull` (ou si tu as modifié `bin/` ou `systemd-user/`), applique :
 
 ```bash
+git pull
 ./update.sh
 ```
 

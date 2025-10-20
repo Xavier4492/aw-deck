@@ -1,0 +1,12 @@
+[Unit]
+Description=Switch StreamDeck to page 0 before system sleep
+Before=sleep.target
+Wants=sleep.target
+StopWhenUnneeded=yes
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/streamdeckc -d 0 -a SET_PAGE -p 0
+
+[Install]
+WantedBy=sleep.target

@@ -1,7 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
-systemctl --user disable --now aw-deckd.service || true
-rm -f "$HOME/.config/systemd/user/aw-deckd.service"
-rm -f "$HOME/.local/bin/aw-deckd" "$HOME/.local/bin/aw-deckctl"
+
+for svc in deck-before-sleep.service deck-bootstrap.service aw-deck-sync.service aw-deckd.service; do
+  systemctl --user disable --now "$svc" || true
+done
+
+rm -f "$HOME/.config/systemd/user/deck-before-sleep.service" \
+      "$HOME/.config/systemd/user/deck-bootstrap.service" \
+      "$HOME/.config/systemd/user/aw-deck-sync.service" \
+      "$HOME/.config/systemd/user/aw-deckd.service"
+
+rm -f "$HOME/.local/bin/deck-bootstrap" \
+      "$HOME/.local/bin/aw-deck-sync" \
+      "$HOME/.local/bin/aw-deckd" \
+      "$HOME/.local/bin/aw-deckctl"
+
 systemctl --user daemon-reload
 echo "Désinstallé."

@@ -15,7 +15,7 @@ Environment=PULSETIME=30
 ExecStart=%h/.local/bin/aw-deckd
 
 # Redémarrer en cas d'erreur
-Restart=on-failure
+Restart=always
 RestartSec=2
 
 # (Optionnel) Limiter le spam si ça échoue en boucle

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DECK=0
+PAGE_SLEEP=0
+PAGE_HOME=1
+AW_URL="${AW_URL:-http://localhost:5600}"
+
+# Préserve le code de retour de streamdeckc
+sd() { streamdeckc -d "$DECK" "$@" >/dev/null 2>&1; }
+
+# Met la page 0 immédiatement (ne plante pas si streamdeckc n'est pas prêt)
+sd -a SET_PAGE -p "$PAGE_SLEEP" || true
+
+# Attend que streamdeckc soit opérationnel (UI initialisée)
+for i in {1..60}; do
+  if sd -a SET_PAGE -p "$PAGE_SLEEP"; then
+    break
+  fi
+  sleep 0.5
+done
+
+# Optionnel: ping léger de l'API AW (ne bloque pas si indispo)
+curl -sf --max-time 1 "$AW_URL/api/0/info" >/dev/null 2>&1 || true
+
+# Le daemon aw-deckd peut mettre 1‑2s à créer le bucket : on laisse un court délai
+sleep 1
+
+# Passe en page 1 (prêt)
+sd -a SET_PAGE -p "$PAGE_HOME" || true
