@@ -101,10 +101,11 @@ highlight_column() {
 
 show_stop_if_active() {
   # Stop bouton index 9 sur page 1
-  set_state "$PAGE_HOME" 9 1
+  set_state "$PAGE_HOME" 9 1 || true
 }
 
 highlight_project_button() {
+  # (gardée pour compatibilité, plus utilisée dans apply_state)
   local client="$1" proj="$2"
   local page; page=$(client_to_page "$client")
   [ -z "$page" ] && return 0
@@ -117,6 +118,24 @@ highlight_project_button() {
   fi
   [ -n "$b" ] && set_state "$page" "$b" 1 || true
 }
+
+# --- cache léger pour ne modifier que le nécessaire ---
+LAST_PAGE=""
+LAST_BTN=""
+LAST_CLIENT=""
+LAST_ACTIVE="false"
+
+reset_project_page() {
+  local page="$1" btns=""
+  case "$page" in
+    2) btns="1 2 3" ;;        # Owapp (client seul sur 3)
+    3|4|5) btns="1 2 3 4" ;;  # Stelivo/JuicyWeb/GreenCompany (client seul sur 4)
+    *) return 0 ;;
+  esac
+  for b in $btns; do set_state "$page" "$b" 0 || true; done
+}
+
+reset_all_project_pages() { for p in 2 3 4 5; do reset_project_page "$p"; done; }
 
 apply_state() {
   # si JSON invalide, on ignore
@@ -132,11 +151,45 @@ apply_state() {
   if [ "$active" = "true" ] && [ -n "$client" ]; then
     highlight_column "$client"
     show_stop_if_active
-    highlight_project_button "$client" "$proj"
+
+    # Calcul du bouton projet courant
+    local page btn
+    page=$(client_to_page "$client")
+    if [ -z "$proj" ]; then
+      btn=$(project_button_for "$page" "__client_only__")
+    else
+      btn=$(project_button_for "$page" "$proj")
+    fi
+
+    # Si changement (page/bouton), éteindre l'ancien
+    if [ -n "$LAST_PAGE" ] && [ -n "$LAST_BTN" ] && { [ "$LAST_PAGE" != "$page" ] || [ "$LAST_BTN" != "$btn" ]; }; then
+      set_state "$LAST_PAGE" "$LAST_BTN" 0 || true
+    fi
+    # Premier passage après (re)démarrage: assainir la page courante
+    if [ -z "$LAST_PAGE" ] && [ -n "$page" ]; then
+      reset_project_page "$page"
+    fi
+
+    [ -n "$page" ] && [ -n "$btn" ] && set_state "$page" "$btn" 1 || true
+
+    LAST_PAGE="$page"
+    LAST_BTN="$btn"
+    LAST_CLIENT="$client"
+    LAST_ACTIVE="$active"
+  else
+    # Inactif: couper le dernier bouton projet allumé (si connu)
+    if [ -n "$LAST_PAGE" ] && [ -n "$LAST_BTN" ]; then
+      set_state "$LAST_PAGE" "$LAST_BTN" 0 || true
+    fi
+    LAST_PAGE=""
+    LAST_BTN=""
+    LAST_CLIENT=""
+    LAST_ACTIVE="$active"
   fi
 }
 
 # --- boucle principale ---
+reset_all_project_pages   # Assainissement au démarrage (évite les restes si le daemon a sauté)
 apply_state
 
 if has_inotify; then
