@@ -1,89 +1,150 @@
-# aw-deck — Pont ActivityWatch ⇄ Stream Deck
+# aw-deck — Pont ActivityWatch ⇄ Stream Deck (Ubuntu 24.04 LTS)
 
-Suivi d’activité (client/projet/tâche) depuis ton Stream Deck, envoyé vers ActivityWatch via des services **systemd (user)**.
+Automatise l’allumage du Stream Deck, l’affichage des pages et l’envoi de “heartbeats” ActivityWatch selon le **client/projet/tâche** sélectionné via des boutons.
+Le tout tourne avec des **services systemd (user)**, démarre automatiquement à la session, repasse en **page 0** avant la veille, et synchronise l’UI du Deck dès qu’un client/projet change.
 
-## 🧱 Vue d’ensemble
-
-* **Daemon** : `aw-deckd` lit `~/.local/state/aw-deck/state.json` toutes les `INTERVAL` secondes et envoie un **heartbeat** vers le bucket `aw-deck_<hostname>`.
-* **CLI** : `aw-deckctl` met à jour `state.json` (ex. `start ACME -p SiteWeb -t "Fix header"` / `stop`).
-* **Sync UI** : `aw-deck-sync` (service user) écoute les changements de `state.json` et met à jour l’UI du deck :
-  - **Page 1** : colonne du **client actif** en **état 2** (ou 1 si pas d’état 2),
-  - **Bouton Stop (9)** : **état 2** quand actif,
-  - **Page client** (2..5) : bouton **projet actif** en **état 1**.
-* **Bootstrap** : `deck-bootstrap` (service oneshot) met **page 0** au login puis **page 1** quand prêt.
-
-**Testé avec** : StreamController (via venv) et `streamdeckc`.
+Testé sur **Ubuntu 24.04.3 LTS**.
 
 ---
 
-## ✅ Prérequis
+## 🧩 Ce que fait exactement ce repo
 
-```bash
-sudo apt install -y curl jq inotify-tools
-systemctl --user enable --now aw-server.service   # ActivityWatch
-```
+* **`aw-deckctl` (CLI)** : écrit l’état courant dans `~/.local/state/aw-deck/state.json`
+  (`start <client> [-p <projet>] [-t <tache>]`, `stop`, `status`).
+* **`aw-deckd` (daemon)** : lit ce JSON toutes les `INTERVAL` secondes et envoie un heartbeat à **ActivityWatch** (bucket `aw-deck_<hostname>`).
+* **`aw-deck-sync` (daemon)** : écoute les changements du JSON et **met à jour l’UI** du Stream Deck via `streamdeckc` :
+
+  * **Page 1** (clients) : la *colonne* du client actif passe en **état 2** (ou 1 si 2 indisponible).
+  * **Bouton Stop (index 9)** sur la page 1 : passe en **état 2** quand une activité est active.
+  * **Page client** (pages 2 à 5) : le **bouton du projet actif** passe en **état 1**.
+* **`deck-bootstrap` (oneshot au login)** : met **page 0** immédiatement, attend que le Deck & `streamdeckc` répondent, puis bascule en **page 1**.
+* **Services systemd (user)** fournis :
+
+  * `streamdeck-ui.service` : lance **streamdeck-linux-gui** en arrière-plan (`-n`).
+  * `aw-deckd.service`, `aw-deck-sync.service`
+  * `deck-bootstrap.service` (oneshot)
+  * `deck-before-sleep.service` (optionnel) : repasse **page 0** avant la mise en veille.
 
 ---
 
-## 🚀 Installation
+## 📦 Prérequis (à faire une fois sur une machine neuve)
+
+> Tu peux exécuter tout ça **avant** d’installer ce repo.
+
+1. **ActivityWatch (serveur)**
+
+    ```bash
+    sudo snap install activitywatch
+    systemctl --user enable --now aw-server.service
+    # Vérif rapide (facultatif) :
+    curl -s http://localhost:5600/api/0/info | jq .
+    ```
+
+2. **Outils systèmes**
+
+    ```bash
+      sudo apt update
+      sudo apt install -y curl jq inotify-tools
+    ```
+
+3. **Stream Deck**
+    * **Backend/GUI** : `streamdeck-linux-gui` (binaire `streamdeck`) – installe-le de ta méthode habituelle (AppImage, .deb, build local…).
+      Place le binaire dans `~/.local/bin/streamdeck` (ou ajuste le service `streamdeck-ui.service`).
+    * **CLI `streamdeckc`** : fourni par **StreamController** (ou équivalent). Assure-toi d’avoir la commande `streamdeckc` disponible dans `$PATH`.
+      Si elle n’est **pas** dans `/usr/bin/streamdeckc`, édite `systemd-user/deck-before-sleep.service` (ligne `ExecStart=`) pour pointer vers l’emplacement correct (e.g. `%h/.local/bin/streamdeckc`).
+
+    > Astuce : un `which streamdeckc` te dira le chemin réel. Idem pour `which streamdeck`.
+
+---
+
+## 🛠️ Installation de ce repo (ou réinstallation)
+
+Depuis le dossier du repo :
 
 ```bash
 ./install.sh
 ```
 
-Active `aw-deckd`, `aw-deck-sync`, et exécute `deck-bootstrap` (oneshot).
+Ce script :
 
-Vérifier :
+* copie les binaires dans `~/.local/bin/`,
+* installe/active les services **user** dans `~/.config/systemd/user/`,
+* démarre **d’abord** `streamdeck-ui.service`, puis `aw-deckd` et `aw-deck-sync`,
+* déclenche `deck-bootstrap` (oneshot) pour afficher **page 1** quand tout est prêt,
+* active `deck-before-sleep` si présent.
+
+### Vérifications rapides
 
 ```bash
+systemctl --user status streamdeck-ui.service
 systemctl --user status aw-deckd.service
 systemctl --user status aw-deck-sync.service
 journalctl --user -u aw-deck-sync.service -f
 ```
 
-> Le daemon crée le bucket si nécessaire et réessaie calmement si `aw-server` n’est pas encore prêt.
+---
+
+## 🎛️ Mappage des pages & comportements
+
+* **Page 0** : “veille/marche/arrêt” — affichée :
+
+  * au login **puis** remplacée par la page 1 quand prêt,
+  * **avant la veille** (via `deck-before-sleep.service`).
+* **Page 1 (clients)** : colonnes (haut/milieu/bas) par client :
+
+  * Colonne **Owapp** : boutons `0 5 10`
+  * **Stelivo** : `1 6 11`
+  * **JuicyWeb** : `2 7 12`
+  * **GreenCompany** : `3 8 13`
+  * **Stop** : bouton `9` (devient **état 2** quand une session est active)
+* **Pages projets** :
+
+  * **Page 2 (Owapp)** : `1:Owapp`, `2:Ensemble Conseils et Services`, `3:client seul`
+  * **Page 3 (Stelivo)** : `1:SextingApps`, `2:NCMEC`, `3:Popunder`, `4:client seul`
+  * **Page 4 (JuicyWeb)** : `1:CarsApi`, `2:Automarket`, `3:Carsloc`, `4:client seul`
+  * **Page 5 (GreenCompany)** : `1:Resval`, `2:Pricecat`, `3:Autoparts`, `4:client seul`
+
+> Les **états visuels** (0/1/2) sont appliqués par `bin/aw-deck-sync` via `streamdeckc`.
 
 ---
 
-## 🕹️ Utilisation (CLI)
+## ⌨️ Utilisation (CLI)
 
 ```bash
+# Démarrer/commuter une activité
 aw-deckctl start <client> [-p <projet>] [-t <tache>]
 aw-deckctl switch <client> [-p <projet>] [-t <tache>]   # alias de start
+
+# Stopper l’activité en cours
 aw-deckctl stop
+
+# Voir l’état brut (JSON)
 aw-deckctl status
 ```
 
 Exemples :
 
 ```bash
-aw-deckctl start ACME -p SiteWeb -t "Fix header"
-aw-deckctl switch ACME -p AppMobile
+aw-deckctl start Owapp -p Owapp
+aw-deckctl switch Owapp -p "Ensemble Conseils et Services"
 aw-deckctl stop
-aw-deckctl status
 ```
 
-Le fichier d’état est toujours ici :
-
-```bash
-~/.local/state/aw-deck/state.json
-```
-
-Il est auto-créé si absent et ignoré s’il est invalide (pas de crash).
+Le fichier d’état est **toujours** ici : `~/.local/state/aw-deck/state.json`.
 
 ---
 
-## ⚙️ Paramètres (daemon)
+## ⚙️ Paramètres (daemon → ActivityWatch)
 
 Dans `~/.config/systemd/user/aw-deckd.service` :
 
 ```ini
 [Service]
 Environment=INTERVAL=10    # heartbeat toutes les 10 s
-Environment=PULSETIME=30   # fusion de pulses ≤ 30 s côté AW
+Environment=PULSETIME=30   # fusionne les pulses ≤ 30 s côté AW
 ```
 
-Appliquer une modification :
+Appliquer après modification :
 
 ```bash
 systemctl --user daemon-reload
@@ -92,20 +153,43 @@ systemctl --user restart aw-deckd.service
 
 ---
 
-## 🔍 Vérifications & Debug
+## 🔁 Mise à jour du repo
 
-* Voir les buckets :
+Après un `git pull` (ou des modifs dans `bin/` / `systemd-user/`) :
 
-  * UI Web : [http://localhost:5600/#/buckets](http://localhost:5600/#/buckets)
+```bash
+./update.sh
+```
+
+Le script recopie les fichiers, `daemon-reload`, et redémarre ce qu’il faut.
+
+---
+
+## 🗑️ Désinstallation propre
+
+```bash
+./uninstall.sh
+```
+
+Désactive/arrête les services, supprime binaires et units, puis `daemon-reload`.
+
+---
+
+## 🧪 Vérifs & debug
+
+* **Buckets AW** :
+
+  * UI : `http://localhost:5600/#/buckets`
   * API : `curl -s http://localhost:5600/api/0/buckets/ | jq`
-
-* Suivre en direct :
+* **Logs** :
 
   ```bash
+  journalctl --user -u streamdeck-ui.service -f
   journalctl --user -u aw-deckd.service -f
+  journalctl --user -u aw-deck-sync.service -f
   ```
 
-* Forcer un test :
+* **Test express** :
 
   ```bash
   aw-deckctl start TEST -p Demo
@@ -115,34 +199,50 @@ systemctl --user restart aw-deckd.service
 
 ---
 
-## 🔄 Mise à jour
+## ❗Points d’attention (à relire quand tu répliques dans quelques mois)
 
-Après un `git pull` (ou si tu as modifié `bin/` ou `systemd-user/`), applique :
+1. **Chemins des binaires**
 
-```bash
-git pull
-./update.sh
-```
+   * `streamdeck` (GUI) : par défaut ce repo le lance via `%h/.local/bin/streamdeck` (voir `systemd-user/streamdeck-ui.service`).
+     Si tu l’installes ailleurs, modifie `ExecStart=`.
+   * `streamdeckc` : vérifie son chemin réel (`which streamdeckc`).
+     Si besoin, adapte `systemd-user/deck-before-sleep.service` (sinon garde `/usr/bin/streamdeckc` s’il existe).
+2. **Ordre de démarrage**
 
-Cela recopie les fichiers vers `~/.local/bin/` et `~/.config/systemd/user/`, fait un `daemon-reload` et **redémarre** le service (ou l’active s’il ne l’était pas).
+   * `streamdeck-ui.service` **doit** démarrer avant `aw-deck-sync.service` et avant `deck-bootstrap.service`.
+3. **USB/permissions**
 
----
+   * Si le Deck n’est pas détecté par `streamdeck-linux-gui`, vérifie udev/permissions USB (dépend de ta méthode d’installation).
+4. **Flatpak vs venv**
 
-## 🗑️ Désinstallation
-
-```bash
-./uninstall.sh
-```
-
-Cela désactive/arrête le service, supprime les fichiers installés et recharge systemd user.
+   * Les builds Flatpak de certains outils peuvent sandboxer l’USB/DBus. La voie “binaire local/venv” est la plus simple ici.
 
 ---
 
-## 📝 Notes plateformes
+## 📎 Référence des services (résumé)
 
-* **StreamController en Flatpak** : l’accès USB/DBus peut être restreint (sandbox). Des overrides existent (`--device=all`, `--filesystem=home`, permissions DBus), mais la voie **venv** est en général plus simple/fiable.
-* **Libadwaita/GTK** : si tu vois des erreurs du type `Adw.ToggleGroup` introuvable, c’est lié à la version de libadwaita de ta distro (mets à jour ou utilise une révision SC compatible).
-* **Veille/Réveil** : le service user `systemd` gère bien la reprise ; `aw-deckd` réémet au cycle suivant.
+* `systemd-user/streamdeck-ui.service`
+  Lance **streamdeck-linux-gui** *sans* ouvrir la fenêtre (`-n`) et le garde en arrière-plan.
+* `systemd-user/deck-bootstrap.service` *(oneshot, au login)*
+  Force la **page 0** puis bascule en **page 1** quand l’UI répond.
+* `systemd-user/aw-deckd.service`
+  Lit le JSON et envoie des **heartbeats** à ActivityWatch.
+* `systemd-user/aw-deck-sync.service`
+  Applique les **états des boutons/pages** en fonction du JSON.
+* `systemd-user/deck-before-sleep.service` *(optionnel)*
+  Met la **page 0** juste avant la **veille**.
+
+---
+
+## ✅ Checklist “nouveau PC”
+
+1. Installer **ActivityWatch** et l’activer en user : `systemctl --user enable --now aw-server.service`
+2. Installer `curl jq inotify-tools`
+3. Installer **streamdeck-linux-gui** et placer `streamdeck` dans `~/.local/bin/` (ou adapter le service)
+4. Installer `streamdeckc` (et vérifier son chemin)
+5. Cloner ce repo et lancer `./install.sh`
+6. Vérifier les services (`status`) puis tester :
+   `aw-deckctl start Owapp -p Owapp`, observer la colonne/états, `aw-deckctl stop`
 
 ---
 
