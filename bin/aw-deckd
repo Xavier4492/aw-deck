@@ -3,7 +3,7 @@ set -euo pipefail
 
 AW_URL="${AW_URL:-http://localhost:5600}"
 BASEURL="$AW_URL/api/0"
-HOST="$(hostname | tr -c '[:alnum:]_-' '_')"
+HOST="$(hostname)"
 BUCKET="aw-deck_${HOST}"
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/aw-deck"
