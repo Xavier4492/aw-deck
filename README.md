@@ -99,7 +99,7 @@ journalctl --user -u aw-deck-sync.service -f
   * **Stop** : bouton `9` (devient **état 2** quand une session est active)
 * **Pages projets** :
 
-  * **Page 2 (Owapp)** : `1:Owapp`, `2:Ensemble Conseils et Services`, `3:client seul`
+  * **Page 2 (Owapp)** : `1:Owapp`, `2:Ensemble`, `3:client seul`
   * **Page 3 (Stelivo)** : `1:SextingApps`, `2:NCMEC`, `3:Popunder`, `4:client seul`
   * **Page 4 (JuicyWeb)** : `1:CarsApi`, `2:Automarket`, `3:Carsloc`, `4:client seul`
   * **Page 5 (GreenCompany)** : `1:Resval`, `2:Pricecat`, `3:Autoparts`, `4:client seul`
@@ -126,7 +126,7 @@ Exemples :
 
 ```bash
 aw-deckctl start Owapp -p Owapp
-aw-deckctl switch Owapp -p "Ensemble Conseils et Services"
+aw-deckctl switch Owapp -p "Ensemble"
 aw-deckctl stop
 ```
 

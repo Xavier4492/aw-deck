@@ -47,7 +47,7 @@ project_button_for() {
     2)
       case "$proj" in
         "Owapp") echo 1;;
-        "Ensemble Conseils et Services") echo 2;;
+        "Ensemble") echo 2;;
         ""|"__client_only__") echo 3;;
         *) echo "";;
       esac
