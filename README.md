@@ -11,7 +11,7 @@ Testé sur **Ubuntu 24.04.3 LTS**.
 
 * **`aw-deckctl` (CLI)** : écrit l’état courant dans `~/.local/state/aw-deck/state.json`
   (`start <client> [-p <projet>] [-t <tache>]`, `stop`, `status`).
-* **`aw-deckd` (daemon)** : lit ce JSON toutes les `INTERVAL` secondes et envoie un heartbeat à **ActivityWatch** (bucket `aw-deck_<hostname>`).
+* **`aw-deckd` (daemon)** : lit ce JSON toutes les `INTERVAL` secondes et envoie un heartbeat à **ActivityWatch** (bucket `aw-watcher_deck_<hostname>`).
 * **`aw-deck-sync` (daemon)** : écoute les changements du JSON et **met à jour l’UI** du Stream Deck via `streamdeckc` :
 
   * **Page 1** (clients) : la *colonne* du client actif passe en **état 1**.
