@@ -7,6 +7,7 @@ After=aw-server.service
 [Service]
 Type=simple
 # Tu peux ajuster ces paramètres ici plutôt que dans l’environnement
+Environment=AW_URL=http://127.0.0.1:5600
 Environment=INTERVAL=10
 Environment=PULSETIME=30
 
