@@ -61,8 +61,12 @@ run_loop() {
         if [ -n "$client" ]; then
           TS=$(date -Is)
           data=$(jq -nc --arg client "$client" --arg projet "$proj" --arg tache "$tache" \
-                '{client:$client} | if ($projet|length)>0 then .projet=$projet else . end
-                                | if ($tache|length)>0  then .tache=$tache  else . end')
+                '{client:$client}
+                 | if ($projet|length)>0 then .projet=$projet else . end
+                 | if ($tache|length)>0  then .tache=$tache  else . end
+                 | .title = ([$client,$projet,$tache]
+                      | map(select(length>0))
+                      | join(" - "))')
           # Heartbeat : si 404 → on retente de créer le bucket immédiatement, puis on ré-essaie
           if ! curl -sSf --connect-timeout 1 --max-time 2 \
               -X POST "$BASEURL/buckets/$BUCKET/heartbeat?pulsetime=$PULSETIME" \
