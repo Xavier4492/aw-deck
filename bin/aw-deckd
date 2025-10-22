@@ -60,25 +60,35 @@ run_loop() {
         tache=$(jq -r '.tache // empty' "$STATE")
         if [ -n "$client" ]; then
           TS=$(date -Is)
-          data=$(jq -nc --arg client "$client" --arg projet "$proj" --arg tache "$tache" \
-                '{client:$client}
-                 | if ($projet|length)>0 then .projet=$projet else . end
-                 | if ($tache|length)>0  then .tache=$tache  else . end
-                 | .title = ([$client,$projet,$tache]
-                      | map(select(length>0))
-                      | join(" - "))')
+          payload=$(
+            jq -nc \
+              --arg ts "$TS" \
+              --argjson dur "$INTERVAL" \
+              --arg client "$client" \
+              --arg projet "$proj" \
+              --arg tache "$tache" '
+              $title := ([$client,$projet,$tache] | map(select(length>0)) | join(" - "));
+              {
+                timestamp: $ts,
+                duration:  $dur,
+                data:
+                  ({client:$client, title:$title, app:"deck"}
+                  + (if ($projet|length)>0 then {projet:$projet} else {} end)
+                  + (if ($tache|length)>0  then {tache:$tache}  else {} end))
+              }'
+          )
           # Heartbeat : si 404 → on retente de créer le bucket immédiatement, puis on ré-essaie
           if ! curl -sSf --connect-timeout 1 --max-time 2 \
               -X POST "$BASEURL/buckets/$BUCKET/heartbeat?pulsetime=$PULSETIME" \
               -H 'Content-Type: application/json' \
-              -d "{\"timestamp\":\"$TS\",\"duration\":$INTERVAL,\"data\":$data}" >/dev/null; then
+              -d "$payload" >/dev/null; then
             log "heartbeat: erreur → tentative (re)création bucket…"
             create_bucket >/dev/stderr || true
             # retente immédiatement une fois
             curl -sSf --connect-timeout 1 --max-time 2 \
               -X POST "$BASEURL/buckets/$BUCKET/heartbeat?pulsetime=$PULSETIME" \
               -H 'Content-Type: application/json' \
-              -d "{\"timestamp\":\"$TS\",\"duration\":$INTERVAL,\"data\":$data}" >/dev/null || \
+              -d "$payload" >/dev/null || \
               log "heartbeat: toujours en erreur après (re)création"
           fi
         fi
